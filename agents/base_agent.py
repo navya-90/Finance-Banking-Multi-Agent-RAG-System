@@ -54,14 +54,19 @@ class BaseAgent(ABC):
             None,
         )
         answer = final.content if final else "I was unable to process your request."
+        if isinstance(answer, list):
+            answer = "".join(
+                part if isinstance(part, str) else (part.get("text", "") if isinstance(part, dict) else "")
+                for part in answer
+            )
         hedged = any(p in answer.lower() for p in ["i'm not sure", "i don't know", "cannot determine"])
         confidence = 0.35 if hedged else 0.9
 
-        return state.model_copy(update={
+        return {
             "agent_response": answer,
             "routed_to": self.domain,
             "confidence": confidence,
             "escalate": confidence < 0.4,
             "escalation_reason": "Agent uncertain" if hedged else None,
-            "messages": list(state.messages) + [AIMessage(content=answer)],
-        })
+            "messages": [AIMessage(content=answer)],
+        }

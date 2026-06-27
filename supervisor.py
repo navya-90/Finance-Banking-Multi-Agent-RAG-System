@@ -28,7 +28,7 @@ Respond with JSON only:
 """
 
 
-def supervisor_node(state: BankingState) -> BankingState:
+def supervisor_node(state: BankingState) -> dict:
     llm = make_llm(CHEAP_LLM, temperature=0)   # no tools needed for classification
 
     last_user_msg = next(
@@ -40,22 +40,34 @@ def supervisor_node(state: BankingState) -> BankingState:
         HumanMessage(content=last_user_msg),
     ])
 
-    match = re.search(r"\{.*\}", response.content, re.DOTALL)
-    parsed = json.loads(match.group()) if match else {}
+    response_content = response.content
+    if isinstance(response_content, list):
+        response_content = "".join(
+            part if isinstance(part, str) else (part.get("text", "") if isinstance(part, dict) else "")
+            for part in response_content
+        )
 
-    confidence = parsed.get("confidence", 1.0)
-    escalate = confidence < ESCALATION_CONFIDENCE_THRESHOLD
+    parsed = {}
+    try:
+        match = re.search(r"\{.*\}", response_content, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+    except Exception:
+        pass
 
-    return state.model_copy(update={
-        "intent": parsed.get("intent", "general"),
+    confidence = parsed.get("confidence", 0.0) if parsed else 0.0
+    intent = parsed.get("intent", "general")
+    escalate = (not parsed) or (confidence < ESCALATION_CONFIDENCE_THRESHOLD)
+    reason = "Invalid routing response format" if not parsed else ("Low classification confidence" if escalate else None)
+
+    return {
+        "intent": intent,
         "confidence": confidence,
         "customer_id": parsed.get("customer_id") or state.customer_id,
         "account_id":  parsed.get("account_id")  or state.account_id,
         "escalate": escalate,
-        "escalation_reason": "Low classification confidence" if escalate else None,
-    })
-
-
+        "escalation_reason": reason,
+    }
 def route_after_supervisor(state: BankingState) -> str:
     if state.escalate:
         return "escalation"

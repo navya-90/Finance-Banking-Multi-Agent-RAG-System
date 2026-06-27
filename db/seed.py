@@ -35,10 +35,10 @@ def seed():
         txns = [
             ("T001","A001","DEBIT",  1200.00,"Swiggy",       "FOOD",     "SUCCESS","2024-03-10 12:00"),
             ("T002","A001","DEBIT", 15000.00,"Unknown Vendor","UNKNOWN",  "SUCCESS","2024-03-11 03:22"),
-            ("T003","A001","CREDIT",50000.00","Salary",       "INCOME",   "SUCCESS","2024-03-01 09:00"),
+            ("T003","A001","CREDIT",50000.00,"Salary",       "INCOME",   "SUCCESS","2024-03-01 09:00"),
             ("T004","A002","DEBIT",  4500.00,"Amazon",        "SHOPPING", "SUCCESS","2024-03-09 18:30"),
-            ("T005","A003","DEBIT",  2200.00","Zomato",        "FOOD",     "SUCCESS","2024-03-10 20:00"),
-            ("T006","A004","DEBIT", 50000.00","Cash Withdrawal","CASH",   "SUCCESS","2024-03-08 11:15"),
+            ("T005","A003","DEBIT",  2200.00,"Zomato",        "FOOD",     "SUCCESS","2024-03-10 20:00"),
+            ("T006","A004","DEBIT", 50000.00,"Cash Withdrawal","CASH",   "SUCCESS","2024-03-08 11:15"),
         ]
         conn.executemany(
             "INSERT OR IGNORE INTO transactions VALUES (?,?,?,?,?,?,?,?)", txns

@@ -6,7 +6,7 @@ import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 
 # Import shared embedding instance and settings from config — not redefined here
@@ -25,7 +25,7 @@ def load_pdf(pdf_path: str) -> list:
     print(f"  Loading: {pdf_path}")
     loader = PyPDFLoader(pdf_path)
     pages = loader.load()
-    print(f"  └─ {len(pages)} pages loaded")
+    print(f"  - {len(pages)} pages loaded")
     return pages
 
 
@@ -34,7 +34,7 @@ def split_documents(pages: list) -> list:
     chunks = _splitter.split_documents(pages)
     for chunk in chunks:
         chunk.metadata["chunk_id"] = str(uuid.uuid4())
-    print(f"  └─ {len(chunks)} chunks after splitting")
+    print(f"  - {len(chunks)} chunks after splitting")
     return chunks
 
 
@@ -58,7 +58,7 @@ def ingest_pdf(domain: str, pdf_path: str):
 
     ids = [c.metadata["chunk_id"] for c in chunks]
     vectorstore.add_documents(documents=chunks, ids=ids)
-    print(f"  └─ {len(chunks)} chunks stored in '{COLLECTIONS[domain]}'")
+    print(f"  - {len(chunks)} chunks stored in '{COLLECTIONS[domain]}'")
 
 
 def ingest_folder(domain: str, folder_path: str):

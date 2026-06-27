@@ -1,25 +1,25 @@
 from langgraph.graph import StateGraph, END
 from state import BankingState
 from supervisor import supervisor_node, route_after_supervisor
+from langchain_core.messages import AIMessage
 from agents.specialist_agents import (
     fraud_node, loans_node, accounts_node,
     markets_node, compliance_node, general_node,
 )
 
 
-def escalation_node(state: BankingState) -> BankingState:
+def escalation_node(state: BankingState) -> dict:
     """Human-in-the-loop placeholder — in production, trigger a ticket/Slack alert."""
     msg = (
         f"Your query has been escalated to a human agent. "
         f"Reason: {state.escalation_reason or 'Complex query'}. "
         f"You will be contacted within 2 business hours."
     )
-    from langchain_core.messages import AIMessage
-    return state.model_copy(update={
+    return {
         "agent_response": msg,
         "routed_to": "escalation",
-        "messages": state.messages + [AIMessage(content=msg)],
-    })
+        "messages": [AIMessage(content=msg)],
+    }
 
 
 def build_graph() -> StateGraph:
@@ -53,11 +53,27 @@ def build_graph() -> StateGraph:
         },
     )
 
-    # All specialist nodes → END
-    for node in ["fraud", "loans", "accounts", "markets", "compliance", "general", "escalation"]:
-        g.add_edge(node, END)
+    # Conditional routing from specialist agents based on escalation flag
+    def route_after_specialist(state: BankingState) -> str:
+        if state.escalate:
+            return "escalation"
+        return END
 
-    return g.compile()
+    for node in ["fraud", "loans", "accounts", "markets", "compliance", "general"]:
+        g.add_conditional_edges(
+            node,
+            route_after_specialist,
+            {
+                "escalation": "escalation",
+                END: END,
+            }
+        )
+
+    g.add_edge("escalation", END)
+
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    return g.compile(checkpointer=memory)
 
 
 # Singleton — import this wherever you need to run the graph

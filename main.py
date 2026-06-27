@@ -2,10 +2,17 @@
 FastAPI entrypoint.
 Run:  uvicorn main:app --reload
 """
+import sys
 import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
+
+# Force stdout/stderr to use UTF-8 to prevent encoding errors on Windows
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 from db.database import init_db
 from graph import banking_graph
@@ -41,20 +48,22 @@ class ChatResponse(BaseModel):
 def chat(req: ChatRequest):
     session_id = req.session_id or str(uuid.uuid4())
 
-    initial_state = BankingState(
-        messages=[HumanMessage(content=req.message)],
-        session_id=session_id,
-        customer_id=req.customer_id,
-        account_id=req.account_id,
-    )
+    config = {"configurable": {"thread_id": session_id}}
 
-    result: BankingState = banking_graph.invoke(initial_state)
+    initial_state = {
+        "messages": [HumanMessage(content=req.message)],
+        "session_id": session_id,
+        "customer_id": req.customer_id or None,
+        "account_id": req.account_id or None,
+    }
+
+    result = banking_graph.invoke(initial_state, config)
 
     return ChatResponse(
-        reply=result.agent_response or "Sorry, I could not process your request.",
-        routed_to=result.routed_to or "unknown",
-        confidence=result.confidence,
-        escalated=result.escalate,
+        reply=result.get("agent_response") or "Sorry, I could not process your request.",
+        routed_to=result.get("routed_to") or "unknown",
+        confidence=result.get("confidence", 1.0),
+        escalated=result.get("escalate", False),
         session_id=session_id,
     )
 
@@ -68,20 +77,21 @@ def health():
 if __name__ == "__main__":
     init_db()
     queries = [
-        ("I see an unknown transaction of ₹15,000 on my account", "C001", "A001"),
+        ("I see an unknown transaction of Rs. 15,000 on my account", "C001", "A001"),
         ("What is the interest rate for a home loan?", "C001", ""),
         ("Show me my account balance", "C001", "A001"),
         ("Should I invest in index funds?", "", ""),
         ("My KYC is pending, what documents do I need?", "C001", ""),
     ]
-    for q, cid, aid in queries:
-        state = BankingState(
-            messages=[HumanMessage(content=q)],
-            customer_id=cid,
-            account_id=aid,
-        )
-        result = banking_graph.invoke(state)
+    for i, (q, cid, aid) in enumerate(queries):
+        state = {
+            "messages": [HumanMessage(content=q)],
+            "customer_id": cid,
+            "account_id": aid,
+        }
+        config = {"configurable": {"thread_id": f"test-thread-{i}"}}
+        result = banking_graph.invoke(state, config)
         print(f"\nQ: {q}")
-        print(f"→ Routed to : {result.routed_to}")
-        print(f"→ Confidence: {result.confidence:.2f}")
-        print(f"→ Reply     : {result.agent_response[:120]}...")
+        print(f"-> Routed to : {result.get('routed_to')}")
+        print(f"-> Confidence: {result.get('confidence', 1.0):.2f}")
+        print(f"-> Reply     : {(result.get('agent_response') or '')[:120]}...")

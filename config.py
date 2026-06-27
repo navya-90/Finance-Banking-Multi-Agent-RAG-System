@@ -1,5 +1,8 @@
 import os
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_mistralai import ChatMistralAI
 
 load_dotenv()
 
@@ -19,9 +22,10 @@ ESCALATION_CONFIDENCE_THRESHOLD = 0.4
 # OpenAI models  : "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"
 # Gemini models  : "gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"
 #
-PRIMARY_LLM  = "gpt-4o"             # used by all specialist agents
-FALLBACK_LLM = "gemini-1.5-pro"     # used if primary raises an exception
-CHEAP_LLM    = "gpt-4o-mini"        # used by supervisor (fast classification)
+PRIMARY_LLM  = "gemini-3.1-flash-lite"     # used by all specialist agents
+FALLBACK_LLM = "gemini-3.1-flash-lite"     # fallback model
+CHEAP_LLM    = "gemini-3.1-flash-lite"     # used by supervisor agent
+
 
 # RAG settings
 HF_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -47,15 +51,12 @@ def make_llm(model: str, temperature: float = 0.2, tools: list = None):
     model_lower = model.lower()
 
     if model_lower.startswith(("gpt-", "o1-", "o3-")):
-        from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(model=model, temperature=temperature)
 
     elif model_lower.startswith("gemini-"):
-        from langchain_google_genai import ChatGoogleGenerativeAI
         llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
 
     elif model_lower.startswith(("mistral-", "open-mistral-")):
-        from langchain_mistralai import ChatMistralAI
         llm = ChatMistralAI(model=model, temperature=temperature)
 
     else:

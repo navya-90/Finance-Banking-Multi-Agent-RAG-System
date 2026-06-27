@@ -7,8 +7,11 @@ from config import PHOENIX_PORT
 
 
 def setup_tracing():
-    # Launch Phoenix UI (opens at http://localhost:{PHOENIX_PORT})
-    px.launch_app(port=PHOENIX_PORT)
+    try:
+        if not px.active_session():
+            px.launch_app(port=PHOENIX_PORT)
+    except Exception as e:
+        print(f"Phoenix app launch skipped or failed: {e}")
 
     # Wire OpenTelemetry → Phoenix exporter
     from phoenix.otel import register
